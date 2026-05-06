@@ -1,0 +1,31 @@
+version: 0.2
+
+env:
+  variables:
+    AWS_REGION: "us-east-1"
+    ECR_REPO_NAME: "whisper-lambda"
+    LAMBDA_FUNCTION: "whisper-transcribe-dev"
+    DOCKERHUB_USERNAME: "03sarath"
+
+phases:
+  pre_build:
+    commands:
+      - export AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+      - export ECR_URI=$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPO_NAME:$MODEL_TAG
+      - aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
+      - aws ecr describe-repositories --repository-names $ECR_REPO_NAME --region $AWS_REGION 2>/dev/null || aws ecr create-repository --repository-name $ECR_REPO_NAME --region $AWS_REGION
+
+  build:
+    commands:
+      - docker pull $DOCKERHUB_USERNAME/whisper-lambda:$MODEL_TAG
+      - docker tag $DOCKERHUB_USERNAME/whisper-lambda:$MODEL_TAG $ECR_URI
+
+  post_build:
+    commands:
+      - docker push $ECR_URI
+      - |
+        if aws lambda get-function --function-name $LAMBDA_FUNCTION --region $AWS_REGION 2>/dev/null; then
+          aws lambda update-function-code --function-name $LAMBDA_FUNCTION --image-uri $ECR_URI --region $AWS_REGION
+        else
+          aws lambda create-function --function-name $LAMBDA_FUNCTION --package-type Image --code ImageUri=$ECR_URI --role $LAMBDA_ROLE_ARN --timeout 300 --memory-size 3008 --region $AWS_REGION
+        fi

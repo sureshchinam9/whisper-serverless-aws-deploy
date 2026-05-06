@@ -1,0 +1,6 @@
+# Local testing files — not needed in pipeline
+local/
+
+# Python
+__pycache__/
+*.pyc
