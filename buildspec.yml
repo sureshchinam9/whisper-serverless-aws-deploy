@@ -10,6 +10,7 @@ env:
 phases:
   pre_build:
     commands:
+      - export $(grep -v '#' deploy.env | xargs)
       - export AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
       - export ECR_URI=$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPO_NAME:$MODEL_TAG
       - export LAMBDA_FUNCTION=whisper-transcribe-$DEPLOY_ENV
@@ -18,8 +19,8 @@ phases:
 
   build:
     commands:
-      - docker pull $DOCKERHUB_USERNAME/whisper-lambda:$MODEL_TAG
-      - docker tag $DOCKERHUB_USERNAME/whisper-lambda:$MODEL_TAG $ECR_URI
+      - docker pull public.ecr.aws/x4m9m0g8/whisper-lambda:$MODEL_TAG
+      - docker tag public.ecr.aws/x4m9m0g8/whisper-lambda:$MODEL_TAG $ECR_URI
       - docker push $ECR_URI
 
   post_build:
